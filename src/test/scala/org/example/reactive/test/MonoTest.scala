@@ -71,11 +71,48 @@ class MonoTest extends FlatSpectTestStyle {
       (s: String) => log.info(s"Got from Mono: $s "),
       log.error("Mono error", _),
       () => log.info("Mono complete"),
-      (s: Subscription) => s.cancel()
+      (s: Subscription) => s.request(5)
     )
 
     StepVerifier.create(mono)
       .expectNext(name.toUpperCase)
       .verifyComplete()
+  }
+
+  "Mono" should "work with doOn methods" in {
+    val name = "Mono Test 6"
+    val mono = Mono.just(name)
+      .map[String](_.toUpperCase)
+      .doOnSubscribe(_ => log.info("Subscribed"))
+      .doOnRequest(n => log.info(s"Request received, ${n}"))
+      .doOnNext(s => log.info(s"Next1: ${s}"))
+      .flatMap[String](_ => Mono.empty[String]())
+      .doOnNext(s => log.info(s"Next2: ${s}"))
+      .doOnSuccess(s => log.info(s"Success: ${s}"))
+
+    mono.subscribe(
+      (s: String) => log.info(s"Got from Mono: $s "),
+      log.error("Mono error", _),
+      () => log.info("Mono complete"),
+      (s: Subscription) => s.request(5)
+    )
+
+    StepVerifier.create(mono)
+      .verifyComplete()
+  }
+
+  "Mono" should "work with doOnError methods" in {
+    val mono = Mono.error[String](new IllegalArgumentException("Ooops"))
+      .doOnError(e => log.error(s"Mono error ${e.getMessage}"))
+      .log()
+
+    mono.subscribe(
+      (s: String) => log.info(s"Received from Mono: ${s}"),
+      (e: Throwable) => log.error(s"Recevied error from Mono: ${e.getMessage}")
+    )
+
+    StepVerifier.create(mono)
+      .expectError(classOf[IllegalArgumentException])
+      .verify()
   }
 }
