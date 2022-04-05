@@ -115,4 +115,24 @@ class MonoTest extends FlatSpectTestStyle {
       .expectError(classOf[IllegalArgumentException])
       .verify()
   }
+
+  "Mono" should "work with doOnErrorResume methods" in {
+    val name = "Mono test 8"
+    val mono = Mono.error[String](new IllegalArgumentException("Ooops"))
+      .doOnError(e => log.error(s"Mono error ${e.getMessage}"))
+      .onErrorResume(e => {
+        log.error(s"Inside onErrorResume, error: ${e.getMessage}")
+        Mono.just(name)
+      })
+      .log()
+
+    mono.subscribe(
+      (s: String) => log.info(s"Received from Mono: ${s}"),
+      (e: Throwable) => log.error(s"Recevied error from Mono: ${e.getMessage}")
+    )
+
+    StepVerifier.create(mono)
+      .expectNext(name)
+      .verifyComplete()
+  }
 }
